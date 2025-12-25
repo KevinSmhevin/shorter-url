@@ -1,0 +1,18 @@
+# robots.txt for ShortURL
+# This file controls how web crawlers and bots interact with the site
+
+User-agent: *
+# Disallow crawling of API endpoints
+Disallow: /api/
+# Disallow crawling of analytics pages (privacy)
+Disallow: /analytics/
+# Allow crawling of the main pages
+Allow: /
+Allow: /urls
+
+# Crawl-delay to rate limit aggressive crawlers (in seconds)
+Crawl-delay: 10
+
+# Sitemap location (if you create one later)
+# Sitemap: https://yourdomain.com/sitemap.xml
+

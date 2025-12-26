@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: shorter-url-backend
+    env: python
+    buildCommand: cd backend && poetry install && poetry run python -m app.main
+    startCommand: cd backend && poetry run gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: BASE_URL
+        sync: false
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: false
+
+  - type: web
+    name: shorter-url-frontend
+    env: static
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+

@@ -136,12 +136,10 @@ async def get_current_user(
         # Convert string back to integer (JWT 'sub' must be string)
         try:
             user_id = int(user_id_str)
-        except (ValueError, TypeError) as e:
-            logger.warning(f"Invalid user_id format in token: {user_id_str}")
-            raise credentials_exception from e
-    except JWTError as e:
-        logger.warning(f"JWT decode failed: {type(e).__name__}")
-        raise credentials_exception from e
+        except (ValueError, TypeError):
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
     
     user = db.query(User).filter(User.id == user_id).first()
     if user is None or not user.is_active:

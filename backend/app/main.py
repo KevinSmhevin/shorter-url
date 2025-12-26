@@ -35,13 +35,9 @@ if settings.ALLOWED_ORIGINS and settings.ALLOWED_ORIGINS != "*":
     allowed_origins = [origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",")]
     # Remove empty strings
     allowed_origins = [origin for origin in allowed_origins if origin]
-    logger.info(f"CORS allowed origins configured: {len(allowed_origins)} origin(s)")
-    logger.debug(f"CORS allowed origins: {allowed_origins}")
 else:
     allowed_origins = ["*"] if settings.DEBUG else []
-    if settings.DEBUG:
-        logger.warning("CORS is set to allow all origins (DEBUG mode)")
-    else:
+    if not settings.DEBUG and not allowed_origins:
         logger.error("CORS is set to allow NO origins - API will be inaccessible from browsers!")
 
 app.add_middleware(
@@ -66,31 +62,13 @@ async def root():
     return {
         "message": "ShortURL API",
         "version": settings.APP_VERSION,
-        "docs": "/docs",
     }
 
 
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    return {
-        "status": "healthy",
-        "cors_configured": len(allowed_origins) > 0,
-        "cors_origins_count": len(allowed_origins),
-    }
-
-
-@app.get("/debug/cors")
-async def debug_cors():
-    """Debug endpoint to check CORS configuration (only in DEBUG mode)."""
-    if not settings.DEBUG:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
-    
-    return {
-        "allowed_origins": allowed_origins,
-        "raw_allowed_origins": settings.ALLOWED_ORIGINS,
-        "environment": settings.ENVIRONMENT,
-    }
+    return {"status": "healthy"}
 
 
 @app.get("/robots.txt", response_class=PlainTextResponse)
@@ -124,6 +102,13 @@ Crawl-delay: 10
     return robots_content
 
 
+# Reserved paths that should not be treated as short codes
+RESERVED_PATHS = {
+    "docs", "redoc", "openapi.json", "api", "health", "robots.txt",
+    "favicon.ico", "static", "assets"
+}
+
+
 @app.get("/{short_code}")
 async def redirect_to_url(
     short_code: str,
@@ -135,6 +120,13 @@ async def redirect_to_url(
     
     - **short_code**: The short code to redirect
     """
+    # Check if this is a reserved path
+    if short_code.lower() in RESERVED_PATHS:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Path '/{short_code}' is reserved and cannot be used as a short code",
+        )
+    
     analytics_service = AnalyticsService(db)
     
     try:

@@ -1,5 +1,7 @@
 """FastAPI application entry point."""
 
+import logging
+
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.responses import RedirectResponse, PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,6 +12,13 @@ from app.database import init_db, get_db
 from app.api.routes import api_router
 from app.services.analytics_service import AnalyticsService
 from app.core.exceptions import URLNotFoundError
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO if not settings.DEBUG else logging.DEBUG,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -22,18 +31,18 @@ app = FastAPI(
 
 # CORS middleware
 # In production, set ALLOWED_ORIGINS environment variable (comma-separated)
-import logging
-
-logger = logging.getLogger(__name__)
-
 if settings.ALLOWED_ORIGINS and settings.ALLOWED_ORIGINS != "*":
     allowed_origins = [origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",")]
     # Remove empty strings
     allowed_origins = [origin for origin in allowed_origins if origin]
-    logger.info(f"CORS allowed origins: {allowed_origins}")
+    logger.info(f"CORS allowed origins configured: {len(allowed_origins)} origin(s)")
+    logger.debug(f"CORS allowed origins: {allowed_origins}")
 else:
     allowed_origins = ["*"] if settings.DEBUG else []
-    logger.warning("CORS is set to allow all origins (DEBUG mode) or no origins")
+    if settings.DEBUG:
+        logger.warning("CORS is set to allow all origins (DEBUG mode)")
+    else:
+        logger.error("CORS is set to allow NO origins - API will be inaccessible from browsers!")
 
 app.add_middleware(
     CORSMiddleware,
@@ -64,7 +73,11 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    return {"status": "healthy"}
+    return {
+        "status": "healthy",
+        "cors_configured": len(allowed_origins) > 0,
+        "cors_origins_count": len(allowed_origins),
+    }
 
 
 @app.get("/debug/cors")

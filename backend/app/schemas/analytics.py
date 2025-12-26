@@ -18,12 +18,19 @@ class AnalyticsResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class RefererItem(BaseModel):
+    """Schema for a referer item in top referers list."""
+
+    referer: str
+    count: int
+
+
 class AnalyticsSummaryResponse(BaseModel):
     """Schema for analytics summary."""
 
     total_clicks: int
     unique_ips: Optional[int] = None
     clicks_by_date: dict[str, int]
-    top_referers: Optional[list[dict[str, int]]] = None
+    top_referers: Optional[list[RefererItem]] = None
     clicks_by_hour: Optional[dict[str, int]] = None
 

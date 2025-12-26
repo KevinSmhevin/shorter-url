@@ -16,3 +16,4 @@ Crawl-delay: 10
 # Sitemap location (if you create one later)
 # Sitemap: https://yourdomain.com/sitemap.xml
 
+

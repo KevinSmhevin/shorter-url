@@ -22,10 +22,18 @@ app = FastAPI(
 
 # CORS middleware
 # In production, set ALLOWED_ORIGINS environment variable (comma-separated)
+import logging
+
+logger = logging.getLogger(__name__)
+
 if settings.ALLOWED_ORIGINS and settings.ALLOWED_ORIGINS != "*":
     allowed_origins = [origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",")]
+    # Remove empty strings
+    allowed_origins = [origin for origin in allowed_origins if origin]
+    logger.info(f"CORS allowed origins: {allowed_origins}")
 else:
     allowed_origins = ["*"] if settings.DEBUG else []
+    logger.warning("CORS is set to allow all origins (DEBUG mode) or no origins")
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,6 +41,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 
@@ -56,6 +65,19 @@ async def root():
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy"}
+
+
+@app.get("/debug/cors")
+async def debug_cors():
+    """Debug endpoint to check CORS configuration (only in DEBUG mode)."""
+    if not settings.DEBUG:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+    
+    return {
+        "allowed_origins": allowed_origins,
+        "raw_allowed_origins": settings.ALLOWED_ORIGINS,
+        "environment": settings.ENVIRONMENT,
+    }
 
 
 @app.get("/robots.txt", response_class=PlainTextResponse)

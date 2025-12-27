@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Background with gradient -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2563eb;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <circle cx="50" cy="50" r="48" fill="url(#bgGradient)"/>
+  
+  <!-- Link chain icon (representing URL) -->
+  <g transform="translate(20, 25)">
+    <!-- First chain link -->
+    <ellipse cx="15" cy="20" rx="8" ry="8" fill="none" stroke="white" stroke-width="3"/>
+    <ellipse cx="15" cy="20" rx="5" ry="5" fill="white" opacity="0.3"/>
+    
+    <!-- Second chain link -->
+    <ellipse cx="35" cy="20" rx="8" ry="8" fill="none" stroke="white" stroke-width="3"/>
+    <ellipse cx="35" cy="20" rx="5" ry="5" fill="white" opacity="0.3"/>
+    
+    <!-- Connection between links -->
+    <line x1="23" y1="20" x2="27" y2="20" stroke="white" stroke-width="3" stroke-linecap="round"/>
+    
+    <!-- Arrow pointing right (shortening/redirect) -->
+    <path d="M 48 20 L 58 20 M 53 15 L 58 20 L 53 25" stroke="white" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  
+  <!-- Shortened URL bar representation -->
+  <rect x="15" y="68" width="70" height="10" rx="5" fill="white" opacity="0.95"/>
+  <rect x="15" y="82" width="50" height="8" rx="4" fill="white" opacity="0.75"/>
+</svg>

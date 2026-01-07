@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     # Application
     APP_NAME: str = "ShortURL API"
     APP_VERSION: str = "0.1.0"
-    DEBUG: bool = True
+    DEBUG: bool = False
 
     # Database
     DATABASE_URL: str = Field(
@@ -62,10 +62,7 @@ class Settings(BaseSettings):
     @classmethod
     def validate_secret_key(cls, v: str, info) -> str:
         """Validate that SECRET_KEY is set, especially in production."""
-        is_production = (
-            info.data.get("ENVIRONMENT", "development") == "production"
-            or info.data.get("DEBUG", True) is False
-        )
+        is_production = info.data.get("ENVIRONMENT", "development") == "production"
         
         if not v or v == "":
             if is_production:
@@ -96,10 +93,7 @@ class Settings(BaseSettings):
     @classmethod
     def validate_base_url(cls, v: str, info) -> str:
         """Warn if BASE_URL is using default in production."""
-        is_production = (
-            info.data.get("ENVIRONMENT", "development") == "production"
-            or info.data.get("DEBUG", True) is False
-        )
+        is_production = info.data.get("ENVIRONMENT", "development") == "production"
         
         if is_production and ("localhost" in v or "127.0.0.1" in v):
             warnings.warn(
@@ -113,10 +107,7 @@ class Settings(BaseSettings):
     @classmethod
     def validate_allowed_origins(cls, v: str, info) -> str:
         """Warn if ALLOWED_ORIGINS is too permissive in production."""
-        is_production = (
-            info.data.get("ENVIRONMENT", "development") == "production"
-            or info.data.get("DEBUG", True) is False
-        )
+        is_production = info.data.get("ENVIRONMENT", "development") == "production"
         
         if is_production and v == "*":
             warnings.warn(
@@ -130,10 +121,7 @@ class Settings(BaseSettings):
     @classmethod
     def validate_database_url(cls, v: str, info) -> str:
         """Warn if using SQLite in production."""
-        is_production = (
-            info.data.get("ENVIRONMENT", "development") == "production"
-            or info.data.get("DEBUG", True) is False
-        )
+        is_production = info.data.get("ENVIRONMENT", "development") == "production"
         
         if is_production and v.startswith("sqlite"):
             warnings.warn(

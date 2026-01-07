@@ -43,6 +43,7 @@ class URLResponse(BaseModel):
     expires_at: Optional[datetime]
     is_active: bool
     click_count: int
+    qr_code: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

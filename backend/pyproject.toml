@@ -20,6 +20,8 @@ validators = "^0.22.0"
 python-jose = {extras = ["cryptography"], version = "^3.3.0"}
 passlib = {extras = ["bcrypt"], version = "^1.7.4"}
 bcrypt = "^4.1.2"
+qrcode = "^8.2"
+pillow = "^12.1.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.3"

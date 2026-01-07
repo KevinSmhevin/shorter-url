@@ -1,12 +1,15 @@
 """URL shortening API routes."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Query
 from sqlalchemy.orm import Session
 from typing import Optional
+from datetime import datetime
+import logging
 
 from app.database import get_db
 from app.schemas.url import URLCreate, URLResponse, URLStatsResponse, URLListResponse
 from app.services.url_service import URLService
+from app.services.qr_service import QRService
 from app.core.exceptions import (
     InvalidURLError,
     ShortCodeGenerationError,
@@ -16,7 +19,7 @@ from app.core.auth import get_current_user, get_current_user_optional
 from app.models.user import User
 
 router = APIRouter()
-
+logger = logging.getLogger(__name__)  
 
 @router.post("/", response_model=URLResponse, status_code=status.HTTP_201_CREATED)
 def create_short_url(
@@ -154,3 +157,117 @@ def deactivate_url(
             detail=str(e),
         ) from e
 
+@router.get("/{short_code}/qr", response_class=Response)
+async def get_qr_code(
+    short_code: str,
+    size: int = Query(default=400, ge=100, le=1000, description="The size of the QR code in pixels (100-1000)"),
+    error_correction: str = Query(default="M", regex="^[LMQHlmqh]$", description="The error correction level (L, M, Q, H)"),
+    border: int = Query(4, ge=1, le=10, description="The border size in boxes (1-10)"),
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+) -> Response:
+    """
+    Generate QR code for a shortened URL.
+    
+    - **short_code**: The short code to generate QR for
+    - **size**: QR code size in pixels (default: 400, min: 100, max: 1000)
+    - **error_correction**: Error correction level - L, M, Q, or H (default: M)
+    - **border**: Border size in boxes (default: 4, min: 1, max: 10)
+    
+    Returns PNG image that can be displayed or downloaded.
+    """
+    
+    service = URLService(db)
+    qr_service = QRService()
+    
+    try:
+        # 1. Validate short code exists and is active
+        try:
+            url_info = service.get_url_stats(short_code)
+        except URLNotFoundError as e:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=str(e),
+            ) from e
+        
+        # 2. Check if URL is active
+        if not url_info["is_active"]:
+            raise HTTPException(
+                status_code=status.HTTP_410_GONE,
+                detail=f"Short code '{short_code}' has been deactivated",
+            )
+        
+        # 3. Check if URL is expired
+        if url_info["expires_at"]:
+            if url_info["expires_at"] < datetime.utcnow():
+                raise HTTPException(
+                    status_code=status.HTTP_410_GONE,
+                    detail=f"Short code '{short_code}' has expired",
+                )
+        
+        # 4. Get short URL
+        short_url = url_info["short_url"]
+
+        # 4. Get short URL
+        short_url = url_info["short_url"]
+        
+        # 5. Validate URL is not empty
+        if not short_url or not short_url.strip():
+            logger.error(f"Empty short URL for code: {short_code}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Unable to generate QR code: Invalid URL",
+            )
+        
+        # 6. Generate QR code with error handling
+        try:
+            qr_bytes = qr_service.generate_qr_code(
+                url=short_url,
+                size=size,
+                error_correction=error_correction.upper(),
+                border=border,
+            )
+        except ValueError as e:
+            # Handle validation errors from QRService
+            logger.warning(f"QR generation validation error: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e),
+            ) from e
+        except Exception as e:
+            # Handle unexpected QR generation errors
+            logger.error(f"QR generation failed for {short_code}: {type(e).__name__}: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to generate QR code. Please try again later.",
+            ) from e
+        
+        # 7. Validate QR code was generated (not empty)
+        if not qr_bytes or len(qr_bytes) == 0:
+            logger.error(f"Empty QR code generated for {short_code}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to generate QR code. Please try again later.",
+            )
+        
+        # 8. Return successful response
+        return Response(
+            content=qr_bytes,
+            media_type="image/png",
+            headers={
+                "Content-Disposition": f'inline; filename="qr-{short_code}.png"',
+                "Cache-Control": "public, max-age=3600",  # Cache for 1 hour
+                "Content-Length": str(len(qr_bytes)),
+            }
+        )
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions (already properly formatted)
+        raise
+    except Exception as e:
+        # Catch-all for unexpected errors
+        logger.error(f"Unexpected error generating QR for {short_code}: {type(e).__name__}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred. Please try again later.",
+        ) from e

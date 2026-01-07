@@ -3,7 +3,7 @@
 import logging
 
 from fastapi import FastAPI, Request, HTTPException, status, Depends
-from fastapi.responses import RedirectResponse, PlainTextResponse
+from fastapi.responses import RedirectResponse, PlainTextResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
@@ -31,14 +31,31 @@ app = FastAPI(
 
 # CORS middleware
 # In production, set ALLOWED_ORIGINS environment variable (comma-separated)
+is_production = settings.ENVIRONMENT == "production"
+
 if settings.ALLOWED_ORIGINS and settings.ALLOWED_ORIGINS != "*":
+    # Specific origins provided
     allowed_origins = [origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",")]
     # Remove empty strings
     allowed_origins = [origin for origin in allowed_origins if origin]
+elif settings.ALLOWED_ORIGINS == "*":
+    # "*" explicitly set - allow it but warn in production
+    if is_production:
+        logger.warning(
+            "ALLOWED_ORIGINS is set to '*' in production. This is insecure! "
+            "Set ALLOWED_ORIGINS to specific domains in production."
+        )
+    allowed_origins = ["*"]
 else:
-    allowed_origins = ["*"] if settings.DEBUG else []
-    if not settings.DEBUG and not allowed_origins:
-        logger.error("CORS is set to allow NO origins - API will be inaccessible from browsers!")
+    # Default behavior: allow all in development, require explicit setting in production
+    if is_production:
+        logger.warning(
+            "ALLOWED_ORIGINS not set in production. CORS may be blocked. "
+            "Set ALLOWED_ORIGINS environment variable to your frontend domain(s)."
+        )
+        allowed_origins = []  # Secure default: no CORS in production unless explicitly set
+    else:
+        allowed_origins = ["*"]  # Development: allow all
 
 app.add_middleware(
     CORSMiddleware,
@@ -102,9 +119,13 @@ Crawl-delay: 10
     return robots_content
 
 
+# Include API routes BEFORE catch-all route to ensure proper route matching
+app.include_router(api_router, prefix=settings.API_V1_PREFIX)
+
+
 # Reserved paths that should not be treated as short codes
 RESERVED_PATHS = {
-    "docs", "redoc", "openapi.json", "api", "health", "robots.txt",
+    "api", "health", "robots.txt",
     "favicon.ico", "static", "assets"
 }
 
@@ -120,8 +141,10 @@ async def redirect_to_url(
     
     - **short_code**: The short code to redirect
     """
+    short_code_lower = short_code.lower()
+    
     # Check if this is a reserved path
-    if short_code.lower() in RESERVED_PATHS:
+    if short_code_lower in RESERVED_PATHS:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Path '/{short_code}' is reserved and cannot be used as a short code",
@@ -161,10 +184,6 @@ async def redirect_to_url(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Short code '{short_code}' not found or expired",
         )
-
-
-# Include API routes
-app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
 
 if __name__ == "__main__":
